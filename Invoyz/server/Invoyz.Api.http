@@ -1,0 +1,6 @@
+@Invoyz.Api_HostAddress = http://localhost:5135
+
+GET {{Invoyz.Api_HostAddress}}/
+Accept: application/json
+
+###

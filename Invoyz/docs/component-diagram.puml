@@ -1,0 +1,123 @@
+@startuml Invoyz-Component-Diagram
+title Invoyz - Component Diagram (Clean Architecture)
+
+skinparam componentStyle rectangle
+skinparam wrap true
+
+' ============ Infrastructure Layer (outermost) ============
+package "Infrastructure Layer" #E8F0FE {
+  component "UI\n(Vue SPA)" as UI
+  component "Cache\n(IMemoryCache mock,\nstands in for a real DB)" as Cache
+  component "PdfGenerationQueue\n(in-memory)" as PdfGenerationQueue
+  component "PdfGenerationWorker\n(background service)" as PdfGenerationWorker
+}
+
+' ============ Controller Layer ============
+package "Controller Layer" #FFF3D6 {
+  component "CustomerController" as CustomerController
+  component "ProductController" as ProductController
+  component "InvoiceController" as InvoiceController
+  component "InvoiceLineController" as InvoiceLineController
+  component "InvoicePdfController" as InvoicePdfController
+}
+
+' ============ Application Layer ============
+package "Application Layer" #E6F7E6 {
+  component "CustomerService" as CustomerService
+  component "ProductService" as ProductService
+  component "InvoiceService" as InvoiceService
+  component "InvoiceLineService" as InvoiceLineService
+  component "InvoicePdfService" as InvoicePdfService
+
+  package "DTOs" #D9F2D9 {
+    component "CustomerDto" as CustomerDto
+    component "ProductDto" as ProductDto
+    component "InvoiceDto" as InvoiceDto
+    component "InvoiceLineDto" as InvoiceLineDto
+    component "PdfJobDto" as PdfJobDto
+  }
+
+  package "Repository Interfaces (Ports)" #D9F2D9 {
+    interface "ICustomerRepository" as ICustomerRepository
+    interface "IProductRepository" as IProductRepository
+    interface "IInvoiceRepository" as IInvoiceRepository
+    interface "IInvoiceLineRepository" as IInvoiceLineRepository
+    interface "IPdfJobRepository" as IPdfJobRepository
+    interface "IPdfGenerationQueue" as IPdfGenerationQueue
+  }
+}
+
+' ============ Domain Layer (innermost) ============
+package "Domain Layer" #F3E6FA {
+  component "Customer" as Customer
+  component "Product" as Product
+  component "Invoice" as Invoice
+  component "InvoiceLine" as InvoiceLine
+  component "PdfJob\n(Pending/Printing/\nPrinted/Failed)" as PdfJob
+}
+
+' ============ Infrastructure -> Controller ============
+UI ..> CustomerController : HTTP
+UI ..> ProductController : HTTP
+UI ..> InvoiceController : HTTP
+UI ..> InvoiceLineController : HTTP
+UI ..> InvoicePdfController : HTTP (POST start,\nGET status,\nGET download)
+
+' ============ Controller -> Application ============
+CustomerController --> CustomerService
+ProductController --> ProductService
+InvoiceController --> InvoiceService
+InvoiceLineController --> InvoiceLineService
+InvoicePdfController --> InvoicePdfService
+
+CustomerController ..> CustomerDto : uses
+ProductController ..> ProductDto : uses
+InvoiceController ..> InvoiceDto : uses
+InvoiceLineController ..> InvoiceLineDto : uses
+InvoicePdfController ..> PdfJobDto : uses
+
+' ============ Application -> DTOs / Domain / Ports ============
+CustomerService ..> CustomerDto : maps
+ProductService ..> ProductDto : maps
+InvoiceService ..> InvoiceDto : maps
+InvoiceService ..> InvoiceLineDto : maps
+InvoiceLineService ..> InvoiceLineDto : maps
+InvoicePdfService ..> PdfJobDto : maps
+
+CustomerService --> Customer
+ProductService --> Product
+InvoiceService --> Invoice
+InvoiceService --> InvoiceLine
+InvoiceLineService --> InvoiceLine
+InvoicePdfService --> PdfJob
+
+CustomerService --> ICustomerRepository
+ProductService --> IProductRepository
+InvoiceService --> IInvoiceRepository
+InvoiceLineService --> IInvoiceLineRepository
+InvoicePdfService --> IPdfJobRepository : create job,\ncheck for one\nalready in flight
+InvoicePdfService --> IPdfGenerationQueue : enqueue invoiceId
+
+' ============ Background PDF generation ============
+' The worker runs outside the request/response cycle: it dequeues a job, snapshots
+' the invoice (customer, lines, totals) at that point in time via the existing
+' Application services, renders the PDF, then writes the result back through the
+' job port - so edits made to the invoice after the job started never affect it.
+PdfGenerationWorker --> IPdfGenerationQueue : dequeue invoiceId
+PdfGenerationWorker --> IPdfJobRepository : update status/result
+PdfGenerationWorker --> InvoiceService : snapshot invoice + lines
+PdfGenerationWorker --> PdfJob
+
+' ============ Domain relationships ============
+Invoice "1" *-- "many" InvoiceLine
+Invoice "1" -- "0..*" PdfJob
+
+' ============ Infrastructure implements ports (Dependency Inversion) ============
+Cache ..|> ICustomerRepository
+Cache ..|> IProductRepository
+Cache ..|> IInvoiceRepository
+Cache ..|> IInvoiceLineRepository
+Cache ..|> IPdfJobRepository
+PdfGenerationQueue ..|> IPdfGenerationQueue
+
+@enduml

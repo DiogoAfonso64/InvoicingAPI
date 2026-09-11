@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "JPrJSdmnWojWVMboKgmxJqpoNdUV945xWxN9rJXiMZU=",
+  "Source": "Invoyz.Api",
+  "BasePath": "_content/Invoyz.Api",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\build\Invoyz.Api.props" />
+</Project>

@@ -1,0 +1,88 @@
+@startuml Invoyz-Domain-Model
+title Invoyz - Domain Model
+
+skinparam classAttributeIconSize 0
+hide circle
+hide empty members
+
+enum InvoiceStatus {
+  Draft
+  Sent
+  Paid
+  Overdue
+}
+
+enum PdfJobStatus {
+  Pending
+  Printing
+  Printed
+  Failed
+}
+
+class Customer {
+  + Id : Guid {readonly}
+  + Name : string(200)
+  + Email : string(254) <<unique>>
+  + Address : string(500)
+  + VatNumber : string <<unique>>
+}
+
+class Product {
+  + Id : Guid {readonly}
+  + Name : string(200)
+  + Description : string(1000)?
+  + UnitPrice : decimal(18,2) {>=0}
+  + TaxRate : decimal(5,2) {0..100}
+}
+
+class Invoice {
+  + Id : Guid {readonly}
+  + InvoiceNumber : string(50) <<unique>>
+  + CustomerId : Guid <<FK>>
+  + IssueDate : DateOnly
+  + DueDate : DateOnly {>=IssueDate}
+  + Status : InvoiceStatus
+  + SubTotal : decimal(18,2) {>=0}
+  + TotalTax : decimal(18,2) {>=0}
+  + GrandTotal : decimal(18,2) {>=0}
+}
+
+class InvoiceLine {
+  + Id : Guid {readonly}
+  + InvoiceId : Guid <<FK>>
+  + ProductId : Guid <<FK>>
+  + Quantity : int {>0}
+  + UnitPrice : decimal(18,2) {>=0}
+  + TaxRate : decimal(5,2) {0..100}
+  + LineTotal : decimal(18,2) {>=0}
+  + LineTax : decimal(18,2) {>=0}
+}
+
+class PdfJob {
+  + Id : Guid {readonly}
+  + InvoiceId : Guid <<FK>>
+  + Status : PdfJobStatus
+  + DownloadUrl : string?
+  + Error : string?
+  + CreatedAt : DateTime {readonly}
+}
+
+Invoice "0..*" --> "1" Customer
+Invoice "1" *-- "1..*" InvoiceLine
+InvoiceLine "0..*" --> "1" Product
+Invoice ..> InvoiceStatus : Status
+Invoice "1" -- "0..*" PdfJob
+PdfJob ..> PdfJobStatus : Status
+
+note right of PdfJob
+  Snapshotted at job start: a PdfJob's
+  render reflects the invoice as it was
+  when generation began, not later edits.
+end note
+
+note bottom of Customer
+  Legend: {readonly}=immutable  <<unique>>=unique
+  <<FK>>=foreign key  ?=optional  {..}=range/rule
+end note
+
+@enduml
